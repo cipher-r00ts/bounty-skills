@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# bin/caido — local launcher for the Caido skill.
+#
+# Default instance is 127.0.0.1:8081 (not Caido's upstream default 8080).
+# Override with CAIDO_URL, e.g. CAIDO_URL=http://127.0.0.1:8080.
+#
+# Auth: `bin/caido setup <pat> http://127.0.0.1:8081` once, or export CAIDO_PAT.
+
+set -euo pipefail
+DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# node lives under nvm and is not on the default PATH.
+NODE_BIN="$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1 || true)"
+[[ -n "$NODE_BIN" ]] && export PATH="$NODE_BIN:$PATH"
+
+export CAIDO_URL="${CAIDO_URL:-http://127.0.0.1:8081}"
+
+if [[ ! -x "$DIR/node_modules/.bin/tsx" ]]; then
+  printf 'caido skill dependencies missing: run "npm install" in %s\n' "$DIR" >&2
+  exit 1
+fi
+
+exec "$DIR/node_modules/.bin/tsx" "$DIR/caido-client.ts" "$@"

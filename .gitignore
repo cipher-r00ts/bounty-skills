@@ -1,0 +1,13 @@
+# local dependencies and clutter
+node_modules/
+.DS_Store
+*.log
+*.tmp
+
+# never commit local credentials or state
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+.unlazy/

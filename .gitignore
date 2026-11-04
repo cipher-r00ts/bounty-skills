@@ -4,6 +4,10 @@ node_modules/
 *.log
 *.tmp
 
+# python bytecode
+__pycache__/
+*.pyc
+
 # never commit local credentials or state
 .env
 .env.*

@@ -1,8 +1,8 @@
 ---
 name: Account Registration
 description: >
-  Register and verify a test account on an in-scope target without a human:
-  generate a per-target Gmail alias, wait for the verification email, pull the
+  Register and verify test accounts on an in-scope target without a human:
+  generate a per-account Gmail alias, wait for the verification email, pull the
   OTP or confirmation link, and record the account. Use when triage marks a host
   tier 0, or the user says "register an account", "sign up and verify", "read
   the verification email", "get the OTP", or "use gmail for signup".
@@ -24,8 +24,12 @@ password never appears in output.
    from an in-scope page.
 2. **Opt-in.** Some programs forbid account creation or automated signup. If the
    program notes do not allow it, stop and ask. Never mass-create accounts.
-3. **One account per target domain.** Reuse it for that program's hosts; do not
-   farm accounts to dodge rate limits.
+3. **Accounts for authorization testing.** There is no one-account-per-target
+   or one-account-per-type cap. Create accounts as needed across the account
+   types and roles supported by the target, including multiple accounts of
+   the same type for cross-user authorization tests. Base the number on the
+   planned tests and program constraints; reuse suitable existing accounts.
+   Do not create accounts to dodge rate limits.
 4. **No bypass.** A CAPTCHA, phone/SMS check, invite code, or manual approval is
    a stop sign. Hand it to the human; do not solve, rent, or bypass it.
 5. **Fictional identity.** Use a consistent test persona, never a real person's
@@ -257,6 +261,11 @@ status before falling back to `mailbox.py`.
 
 ### 1. Confirm the target and make an alias
 
+Identify the supported account types, roles, and tenants needed for the planned
+checks. Inspect existing account records, then repeat this flow for each
+additional account needed, including same-type peers. Assign each account a
+unique, filesystem-safe account ID and generate a fresh alias/password.
+
 ```bash
 .opencode/skills/registration/scripts/mailbox.py alias --tag 3hk --json
 ```
@@ -268,19 +277,24 @@ status before falling back to `mailbox.py`.
 }
 ```
 
-Gmail delivers `+alias` mail to the base inbox. The alias keeps each target's
+Gmail delivers `+alias` mail to the base inbox. The alias keeps each account's
 verification mail separable and makes the account obvious in the target's
 records. Use the generated password; do not invent a weak one.
 
 Some validators reject `+` in the local part. If the form refuses the alias,
 fall back to the base address, note it in the account record, and rely on
-`--subject-re` plus `--since` to pick the right mail.
+`--subject-re` plus `--since` to pick the right mail. If the base address is
+already used, use another available researcher-controlled address accepted by
+the target. If none is available, record the missing prerequisite; an existing
+login does not count as a distinct account.
 
 ### 2. Register in the browser
 
 Open the registration page in the normal test browser (through Caido when the
 target workflow uses it) and keep that tab: some links are bound to the cookie
-set during signup.
+set during signup. Isolate each account's cookies and storage in separate
+browser profiles/contexts, or explicitly switch sessions and verify the active
+identity before testing. Label saved sessions by account ID.
 
 Fill only what the form requires. Use the generated alias and password and the
 target's test persona. Stop at CAPTCHA, SMS, or payment.
@@ -325,10 +339,18 @@ extracting:
 
 ### 5. Record the account
 
-Write `targets/<target>/state/registration/<host>.json`:
+Write one record per account at
+`targets/<target>/state/registration/<host>/<account-id>.json`; never overwrite
+another account's record. Check legacy `<host>.json` records for reusable
+accounts too:
 
 ```json
 {
+  "account_id": "member-a",
+  "account_type": "member",
+  "role": "member",
+  "tenant_id": "researcher-tenant-a",
+  "purpose": "cross-user authorization checks with member-b",
   "host": "app.example.com",
   "url": "https://app.example.com/register",
   "alias": "recon.example+3hk-a1b2c3@gmail.com",
@@ -340,7 +362,8 @@ Write `targets/<target>/state/registration/<host>.json`:
 }
 ```
 
-Set `status` to `pending`, `verified`, `blocked`, or `abandoned`. On `blocked`,
+Record observed account type, role, and tenant; use `null` when unknown or
+not applicable. Set `status` to `pending`, `verified`, `blocked`, or `abandoned`. On `blocked`,
 record what stopped it (CAPTCHA, SMS, invite) so the next run does not retry
 blindly.
 
